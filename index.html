@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel Data Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #1f2937;
+  }
+  .header {
+    background: #111827;
+    color: white;
+    padding: 24px 18px;
+    text-align: center;
+  }
+  .header h1 { margin: 0 0 8px; font-size: 28px; }
+  .header p { margin: 0; color: #d1d5db; }
+  .container {
+    max-width: 1200px;
+    margin: 28px auto;
+    padding: 0 16px;
+  }
+  .card {
+    background: white;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.08);
+    margin-bottom: 20px;
+  }
+  .upload-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  #fileInput { display: none; }
+  .upload-btn {
+    display: inline-block;
+    background: #2563eb;
+    color: white;
+    padding: 12px 22px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .upload-btn:hover { background: #1d4ed8; }
+  #fileName { color: #4b5563; }
+  .info {
+    margin-top: 14px;
+    font-size: 14px;
+    color: #6b7280;
+  }
+  .sheet-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+  .sheet-tab {
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .sheet-tab.active {
+    background: #111827;
+    color: white;
+    border-color: #111827;
+  }
+  .table-wrap {
+    overflow: auto;
+    max-height: 65vh;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 600px;
+  }
+  th, td {
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  th {
+    position: sticky;
+    top: 0;
+    background: #eef2ff;
+    font-weight: bold;
+    z-index: 1;
+  }
+  tr:hover td { background: #f9fafb; }
+
+  .done-column-btn {
+    border: none;
+    background: #16a34a;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .done-column-btn:hover { background: #15803d; }
+  .done-column-btn.completed {
+    background: #166534;
+  }
+  td.cell-done {
+    background: #dcfce7 !important;
+    color: #166534;
+    font-weight: bold;
+  }
+  .student-area {
+    margin-bottom: 24px;
+  }
+  .student-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  .student-area h2 {
+    margin: 0 0 5px;
+  }
+  .save-btn {
+    border: none;
+    background: #111827;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .save-btn:hover {
+    background: #374151;
+  }
+  .save-message {
+    min-height: 20px;
+    margin: 4px 0 10px;
+    color: #166534;
+    font-size: 14px;
+  }
+  .student-help {
+    color: #6b7280;
+    margin-top: 0;
+  }
+  #studentList {
+    display: grid;
+    gap: 10px;
+  }
+  .student-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 15px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f9fafb;
+  }
+  .student-name {
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .student-name.done {
+    color: #166534;
+  }
+  .student-done-btn {
+    border: none;
+    background: #2563eb;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: bold;
+    min-width: 82px;
+  }
+  .student-done-btn:hover {
+    background: #1d4ed8;
+  }
+  .student-done-btn.completed {
+    background: #16a34a;
+  }
+  .student-item.completed {
+    background: #dcfce7;
+    border-color: #86efac;
+  }
+  .empty {
+    text-align: center;
+    padding: 45px 15px;
+    color: #6b7280;
+  }
+  .error {
+    color: #b91c1c;
+    background: #fef2f2;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>Excel Data Viewer</h1>
+  <p>Upload an Excel file to view all of its details</p>
+</header>
+
+<main class="container">
+  <section class="card">
+    <div class="upload-row">
+      <label class="upload-btn" for="fileInput">📁 Upload Excel</label>
+      <input id="fileInput" type="file" accept=".xlsx,.xls,.csv">
+      <span id="fileName">No file selected</span>
+    </div>
+    <div class="info">
+      Supported files: .xlsx, .xls and .csv. The file is processed in your browser.
+    </div>
+    <div id="error" class="error"></div>
+  </section>
+
+  <section class="card">
+    <div id="emptyState" class="empty">
+      Upload an Excel file to see its data here.
+    </div>
+
+    <div id="dataArea" style="display:none;">
+      <div id="studentArea" class="student-area">
+        <div class="student-header">
+          <div>
+            <h2>Student List</h2>
+            <p class="student-help">Click Done after completing each student.</p>
+          </div>
+          <button id="saveButton" class="save-btn" type="button">💾 Save Data</button>
+        </div>
+        <div id="saveMessage" class="save-message"></div>
+        <div id="studentList"></div>
+      </div>
+
+      <div id="sheetTabs" class="sheet-tabs"></div>
+      <div class="table-wrap">
+        <table id="dataTable"></table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const fileInput = document.getElementById("fileInput");
+const fileName = document.getElementById("fileName");
+const emptyState = document.getElementById("emptyState");
+const dataArea = document.getElementById("dataArea");
+const sheetTabs = document.getElementById("sheetTabs");
+const dataTable = document.getElementById("dataTable");
+const studentList = document.getElementById("studentList");
+const saveButton = document.getElementById("saveButton");
+const saveMessage = document.getElementById("saveMessage");
+const errorBox = document.getElementById("error");
+
+let workbook = null;
+
+fileInput.addEventListener("change", handleFile);
+saveButton.addEventListener("click", saveStudentData);
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.style.display = "block";
+}
+
+function clearError() {
+  errorBox.textContent = "";
+  errorBox.style.display = "none";
+}
+
+function handleFile(event) {
+  clearError();
+  const file = event.target.files[0];
+  if (!file) return;
+
+  fileName.textContent = file.name;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      workbook = XLSX.read(data, { type: "array", cellDates: true });
+
+      if (!workbook.SheetNames.length) {
+        throw new Error("No worksheet was found in this file.");
+      }
+
+      emptyState.style.display = "none";
+      dataArea.style.display = "block";
+      buildStudentList();
+      loadSavedProgress();
+      createSheetTabs();
+      showSheet(workbook.SheetNames[0]);
+    } catch (err) {
+      dataArea.style.display = "none";
+      emptyState.style.display = "block";
+      showError("Could not read the Excel file. Please check that it is a valid Excel file.");
+    }
+  };
+
+  reader.onerror = function() {
+    showError("There was a problem reading the selected file.");
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function createSheetTabs() {
+  sheetTabs.innerHTML = "";
+
+  workbook.SheetNames.forEach((sheetName, index) => {
+    const button = document.createElement("button");
+    button.className = "sheet-tab" + (index === 0 ? " active" : "");
+    button.textContent = sheetName;
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".sheet-tab").forEach(b => b.classList.remove("active"));
+      button.classList.add("active");
+      showSheet(sheetName);
+    });
+    sheetTabs.appendChild(button);
+  });
+}
+
+function saveStudentData() {
+  const data = [];
+
+  document.querySelectorAll(".student-item").forEach(item => {
+    const nameElement = item.querySelector(".student-name");
+    const name = nameElement.textContent.replace(/^✓\s*/, "").trim();
+    const completed = item.classList.contains("completed");
+
+    data.push({
+      name: name,
+      completed: completed
+    });
+  });
+
+  const saveObject = {
+    savedAt: new Date().toISOString(),
+    students: data
+  };
+
+  localStorage.setItem("studentProgress", JSON.stringify(saveObject));
+
+  // Also download a small backup file so the user can keep a copy.
+  const blob = new Blob(
+    [JSON.stringify(saveObject, null, 2)],
+    { type: "application/json" }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "student_progress.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  saveMessage.textContent = "✓ Data saved successfully.";
+  setTimeout(() => {
+    saveMessage.textContent = "";
+  }, 3000);
+}
+
+function loadSavedProgress() {
+  try {
+    const saved = localStorage.getItem("studentProgress");
+    if (!saved) return;
+
+    const parsed = JSON.parse(saved);
+    if (!parsed.students) return;
+
+    document.querySelectorAll(".student-item").forEach(item => {
+      const nameElement = item.querySelector(".student-name");
+      const button = item.querySelector(".student-done-btn");
+      const name = nameElement.textContent.replace(/^✓\s*/, "").trim();
+
+      const savedStudent = parsed.students.find(s => s.name === name);
+
+      if (savedStudent?.completed) {
+        item.classList.add("completed");
+        nameElement.classList.add("done");
+        nameElement.textContent = "✓ " + name;
+        button.textContent = "✓ Done";
+        button.classList.add("completed");
+      }
+    });
+  } catch (e) {
+    console.log("No saved progress could be loaded.");
+  }
+}
+
+function buildStudentList() {
+  studentList.innerHTML = "";
+
+  // Use the first sheet as the source for the student list.
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+
+  if (rows.length < 2) {
+    studentList.innerHTML = '<div class="empty">No student names found.</div>';
+    return;
+  }
+
+  const headers = rows[0].map(value => String(value).trim().toLowerCase());
+
+  // Try to find a column named Name / Student Name / Student.
+  let nameColumn = headers.findIndex(h =>
+    h === "name" ||
+    h === "student" ||
+    h === "student name" ||
+    h === "studentname" ||
+    h.includes("student name")
+  );
+
+  // If no obvious name column exists, use the first column.
+  if (nameColumn === -1) nameColumn = 0;
+
+  const students = [];
+
+  for (let r = 1; r < rows.length; r++) {
+    const name = String(rows[r]?.[nameColumn] ?? "").trim();
+    if (name) students.push(name);
+  }
+
+  // Remove duplicate names while preserving order.
+  const uniqueStudents = [...new Set(students)];
+
+  if (!uniqueStudents.length) {
+    studentList.innerHTML = '<div class="empty">No student names found.</div>';
+    return;
+  }
+
+  uniqueStudents.forEach((name, index) => {
+    const item = document.createElement("div");
+    item.className = "student-item";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "student-name";
+    nameSpan.textContent = name;
+
+    const button = document.createElement("button");
+    button.className = "student-done-btn";
+    button.textContent = "Done";
+
+    button.addEventListener("click", () => {
+      const completed = item.classList.toggle("completed");
+      nameSpan.classList.toggle("done", completed);
+
+      if (completed) {
+        nameSpan.textContent = "✓ " + name;
+        button.textContent = "✓ Done";
+        button.classList.add("completed");
+      } else {
+        nameSpan.textContent = name;
+        button.textContent = "Done";
+        button.classList.remove("completed");
+      }
+    });
+
+    item.appendChild(nameSpan);
+    item.appendChild(button);
+    studentList.appendChild(item);
+  });
+}
+
+function showSheet(sheetName) {
+  const sheet = workbook.Sheets[sheetName];
+
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+
+  dataTable.innerHTML = "";
+
+  if (!rows.length) {
+    dataTable.innerHTML = "<tr><td>No data found in this sheet.</td></tr>";
+    return;
+  }
+
+  const maxColumns = rows.reduce((max, row) => Math.max(max, row.length), 0);
+
+  // Header row
+  const headerRow = document.createElement("tr");
+
+  for (let c = 0; c < maxColumns; c++) {
+    const th = document.createElement("th");
+
+    const title = document.createElement("div");
+    title.textContent = rows[0]?.[c] || `Column ${c + 1}`;
+    title.style.marginBottom = "8px";
+
+    const doneButton = document.createElement("button");
+    doneButton.textContent = "Done";
+    doneButton.className = "done-column-btn";
+    doneButton.dataset.column = c;
+
+    doneButton.addEventListener("click", function () {
+      const isDone = this.classList.toggle("completed");
+
+      // Mark/unmark every student's cell in this column.
+      const bodyRows = dataTable.querySelectorAll("tr.student-row");
+      bodyRows.forEach(row => {
+        const cell = row.children[c];
+        if (cell) {
+          cell.classList.toggle("cell-done", isDone);
+          cell.dataset.done = isDone ? "true" : "false";
+        }
+      });
+
+      this.textContent = isDone ? "✓ Done" : "Done";
+    });
+
+    th.appendChild(title);
+    th.appendChild(doneButton);
+    headerRow.appendChild(th);
+  }
+
+  dataTable.appendChild(headerRow);
+
+  // Student/data rows
+  for (let r = 1; r < rows.length; r++) {
+    const tr = document.createElement("tr");
+    tr.className = "student-row";
+
+    for (let c = 0; c < maxColumns; c++) {
+      const td = document.createElement("td");
+      td.textContent = rows[r]?.[c] ?? "";
+      tr.appendChild(td);
+    }
+
+    dataTable.appendChild(tr);
+  }
+}
+</script>
+
+</body>
+</html>
